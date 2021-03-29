@@ -9,21 +9,25 @@
 #ifndef SOFIXER_ELFREADER_H
 #define SOFIXER_ELFREADER_H
 
-#import "exelf.h"
+#include "macros.h"
+#include "FileReader.h"
 
 #include <cstdint>
 #include <cstddef>
 #include <memory.h>
 
 class ElfRebuilder;
+class ObElfReader;
+
+
 
 class ElfReader {
 public:
     ElfReader();
-    ~ElfReader();
+    virtual ~ElfReader();
 
-    bool Load();
-    void setSource(const char* source, int fd);
+    virtual bool Load();
+    bool setSource(const char* source);
 
     size_t phdr_count() { return phdr_num_; }
     uint8_t * load_start() { return load_start_; }
@@ -32,22 +36,22 @@ public:
     const Elf_Phdr* loaded_phdr() { return loaded_phdr_; }
 
     const Elf_Ehdr* record_ehdr() { return &header_; }
-private:
+
+protected:
     bool ReadElfHeader();
     bool VerifyElfHeader();
     bool ReadProgramHeader();
-    bool ReserveAddressSpace();
+    bool ReserveAddressSpace(uint32_t padding_size = 0);
     bool LoadSegments();
     bool FindPhdr();
     bool CheckPhdr(uint8_t *);
-    bool LoadFileData(void* addr, size_t len, int offset);
+    // If I have change anything in phtr_table_, just apply the chagnes into loaded_phdr.
+    void ApplyPhdrTable();
 
-    bool PatchPhdr();
+    virtual void GetDynamicSection(Elf_Dyn** dynamic, size_t* dynamic_count, Elf_Word* dynamic_flags);
 
     const char* name_;
-    const char* source_;
-
-    int fd_;
+    FileReader* source_ = nullptr;
 
     Elf_Ehdr header_;
     size_t phdr_num_;
@@ -60,6 +64,7 @@ private:
     uint8_t * load_start_;
     // Size in bytes of reserved address space.
     Elf_Addr load_size_;
+    Elf_Addr pad_size_;
     size_t file_size;
     // Load bias.
     uint8_t * load_bias_;
@@ -67,16 +72,12 @@ private:
     // Loaded phdr.
     const Elf_Phdr* loaded_phdr_;
 
-    // feature
-public:
-    void setDumpSoFile(bool b) { dump_so_file_ = b; }
-    void setDumpSoBaseAddr(Elf_Addr base) { dump_so_base_ = base; }
 
 private:
-    bool dump_so_file_ = false;
-    Elf_Addr dump_so_base_ = 0;
 
     friend class ElfRebuilder;
+    friend class ObElfReader;
+
 };
 
 
